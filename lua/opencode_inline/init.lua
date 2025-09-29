@@ -7,7 +7,7 @@ local default_config = {
   input_prompt = "AI instruction: ",
   mappings = {
     prompt = "<leader>k",
-    prompt_desc = "AI: Transform with opencode",
+    prompt_desc = "AI: Transform with Claude",
   },
   presets = {
     explain = {
@@ -127,7 +127,7 @@ local function build_command(cfg, instruction, extra_args, range, bufnr)
   local ft = buffer_filetype(bufnr)
   parts[#parts + 1] = string.format("NVIM_FILETYPE=%s", shellescape(ft))
   local strip_flag = cfg.strip_codeblock and "1" or "0"
-  parts[#parts + 1] = string.format("OPCODE_STRIP_CODEBLOCK=%s", shellescape(strip_flag))
+  parts[#parts + 1] = string.format("CLAUDE_STRIP_CODEBLOCK=%s", shellescape(strip_flag))
 
   if cfg.env then
     for key, value in pairs(cfg.env) do
@@ -194,7 +194,7 @@ local function register_preset(cfg, name, preset)
 
   vim.keymap.set("v", preset.key, function()
     apply_filter(cfg, preset.instruction, preset.args)
-  end, { desc = preset.desc or ("Opencode preset: " .. name), silent = true })
+  end, { desc = preset.desc or ("Claude preset: " .. name), silent = true })
   record_keymap("v", preset.key)
 end
 
@@ -202,7 +202,7 @@ local function register_prompt_mapping(cfg)
   if cfg.mappings and cfg.mappings.prompt and cfg.mappings.prompt ~= "" then
     vim.keymap.set("v", cfg.mappings.prompt, function()
       prompt_for_instruction(cfg)
-    end, { desc = cfg.mappings.prompt_desc or "AI: Transform with opencode", silent = true })
+    end, { desc = cfg.mappings.prompt_desc or "AI: Transform with Claude", silent = true })
     record_keymap("v", cfg.mappings.prompt)
   end
 end
@@ -220,7 +220,7 @@ local function register_cmd_mapping(cfg)
     local rhs = cfg.mappings.prompt
     local keys = vim.api.nvim_replace_termcodes(rhs, true, false, true)
     vim.api.nvim_feedkeys(keys, "x", false)
-  end, { desc = "Cmd+K -> opencode inline", silent = true })
+  end, { desc = "Cmd+K -> Claude inline", silent = true })
   record_keymap("v", cfg.cmd_map)
 end
 
@@ -238,7 +238,7 @@ local function register_user_command(cfg)
       range = { command_opts.line1, command_opts.line2 }
     end
     apply_filter(cfg, instruction, nil, range)
-  end, { range = true, nargs = "*", desc = "Send selected lines through opencode inline" })
+  end, { range = true, nargs = "*", desc = "Send selected lines through Claude inline" })
 end
 
 function M.apply_visual(instruction, extra_args)

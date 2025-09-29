@@ -1,16 +1,16 @@
 # opencode-inline.nvim
 
-Cursor-style inline AI transforms for Neovim visual selections using the `opencode` CLI.
+Cursor-style inline AI transforms for Neovim visual selections using the `claude` CLI (`claude -p`).
 
 ## Features
-- Visual mode filter that pipes selections to `opencode run` with your instruction and replaces the code inline.
+- Visual mode filter that pipes selections to `claude -p` with your instruction and replaces the code inline.
 - Bundled stdin wrapper script that builds a structured prompt with filetype fences for better completions.
 - Ready-to-use keymaps for prompting (`<leader>k`) and quick presets for explain/refactor/test flows.
 - Optional GUI-friendly mapping (e.g. `<D-k>`) that reuses the prompt mapping.
 - User command `:OpencodeInline` for piping a range or prompting manually.
 
 ## Requirements
-- [opencode CLI](https://github.com/opencode) available on your `PATH`.
+- [Claude Code CLI](https://www.anthropic.com/product/claude-code) (`claude`) available on your `PATH`.
 - Neovim 0.9+ (for `vim.ui.input` / `vim.fs.joinpath`).
 
 ## Installation
@@ -37,7 +37,7 @@ The plugin exposes both keymaps and the `:OpencodeInline` command, so you can de
     {
       "<leader>k",
       mode = "v",
-      desc = "AI: Transform with opencode",
+      desc = "AI: Transform with Claude",
       function()
         require("opencode_inline").prompt_visual()
       end,
@@ -61,7 +61,11 @@ The plugin exposes both keymaps and the `:OpencodeInline` command, so you can de
 
 With this setup `lazy.nvim` loads the plugin the first time you hit one of the registered keys or call `:OpencodeInline`, keeping startup fast while still making the AI workflow available on demand.
 
-The bundled script lives at `scripts/opencode-stdin` inside the plugin and is executable out of the box. If you want to call it directly from your shell, add it to your `PATH` (e.g. symlink into `~/.local/bin`).
+The bundled script lives at `scripts/opencode-stdin` inside the plugin and is executable out of the box. If you want to call it directly from your shell, add it to your `PATH` (e.g. symlink into `~/.local/bin`). Despite the historical name, it now wraps the `claude -p` CLI for inline edits.
+
+### Passing Claude CLI flags
+
+Any additional arguments supplied from keymaps or presets are forwarded straight to `claude`, so you can take advantage of headless options such as `--output-format json`, `--resume <session-id>`, or tool restrictions like `--allowedTools`. Set `default_args` in `setup()` for global defaults, or provide per-preset `args` when you need custom behaviour.
 
 ## Usage
 1. Visually select the code you want to transform.
@@ -85,12 +89,12 @@ Call `setup` with your preferences. All fields are optional; the defaults mimic 
 require("opencode_inline").setup({
   script_path = nil,            -- custom path to opencode-stdin (auto-detected otherwise)
   strip_codeblock = true,       -- keep only the first fenced block from responses
-  default_args = {},            -- extra args to always pass to opencode run (e.g. {"--model", "provider/model"})
+  default_args = {},            -- extra args to always pass to `claude` (e.g. {"--model", "claude-3.5-sonnet"})
   env = {},                     -- extra env vars to add before the command
   input_prompt = "AI instruction: ",
   mappings = {
     prompt = "<leader>k",
-    prompt_desc = "AI: Transform with opencode",
+    prompt_desc = "AI: Transform with Claude",
   },
   presets = {
     explain = { key = "<leader>ke", instruction = "Explain…", desc = "AI: Explain" },
@@ -104,7 +108,7 @@ require("opencode_inline").setup({
 Disable or change mappings by setting their keys to `false`/`nil` or replacing them with your preferred shortcuts. Add new presets by extending the `presets` table; each entry accepts `key`, `instruction`, optional `desc`, and optional `args` (extra CLI flags).
 
 ## Wrapper script details
-`scripts/opencode-stdin` accepts an instruction as the first argument and forwards everything else to `opencode run`. It reads the visual selection from stdin, detects the buffer filetype via `NVIM_FILETYPE`, and wraps the request in a deterministic system prompt. Set `OPCODE_STRIP_CODEBLOCK=0` to return the full textual response instead of stripping to the first fenced block.
+`scripts/opencode-stdin` accepts an instruction as the first argument and forwards everything else to `claude -p`. It reads the visual selection from stdin, detects the buffer filetype via `NVIM_FILETYPE`, and wraps the request in a deterministic system prompt. Set `CLAUDE_STRIP_CODEBLOCK=0` to return the full textual response instead of stripping to the first fenced block.
 
 ## Tips
 - Yank to a register before transforming if you want a manual diff.

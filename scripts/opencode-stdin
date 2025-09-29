@@ -2,12 +2,12 @@
 set -euo pipefail
 
 # Usage:
-#   opencode-stdin "Instruction here" [-m provider/model] [--agent agent-name]
+#   opencode-stdin "Instruction here" [<extra claude flags>]
 #
 # Reads code from stdin, detects filetype from $NVIM_FILETYPE if set,
-# builds a structured prompt, and prints opencode's response.
+# builds a structured prompt, and prints Claude's response.
 #
-# If you want only code output, set OPCODE_STRIP_CODEBLOCK=1.
+# If you want only code output, set CLAUDE_STRIP_CODEBLOCK=1.
 
 INSTRUCTION=${1:-"Improve this code"}
 shift || true
@@ -52,16 +52,21 @@ PROMPT+="$INSTRUCTION"
 PROMPT+=$'\n\nCode:\n'
 PROMPT+="\`\`\`${FT}\n${CODE}\n\`\`\`"
 
-if ! command -v opencode >/dev/null 2>&1; then
-  echo "opencode command not found in PATH" >&2
+if ! command -v claude >/dev/null 2>&1; then
+  echo "claude command not found in PATH" >&2
   exit 127
 fi
 
 # Encourage non-interactive output if the CLI honors these flags/env vars.
 : "${NO_COLOR:=1}"
-: "${OPENCODE_NO_COLOR:=1}"
+: "${CLAUDE_NO_COLOR:=1}"
 
-OUT=$(NO_COLOR="$NO_COLOR" OPENCODE_NO_COLOR="$OPENCODE_NO_COLOR" opencode run "${PROMPT}" "${MODEL_ARGS[@]}" 2>&1)
+set +e
+RAW_OUT=$(NO_COLOR="$NO_COLOR" CLAUDE_NO_COLOR="$CLAUDE_NO_COLOR" claude -p "${PROMPT}" "${MODEL_ARGS[@]}" 2>&1)
+STATUS=$?
+set -e
+
+OUT=$RAW_OUT
 
 # Strip ANSI escape sequences/spinners for clean buffer insertion.
 if command -v python3 >/dev/null 2>&1; then
@@ -78,7 +83,12 @@ else
   OUT=${OUT//$'\e'\[*m/}
 fi
 
-if [[ "${OPCODE_STRIP_CODEBLOCK:-0}" == "1" ]]; then
+if [[ $STATUS -ne 0 ]]; then
+  printf "claude command failed (exit %d)\n%s\n" "$STATUS" "$OUT"
+  exit 0
+fi
+
+if [[ "${CLAUDE_STRIP_CODEBLOCK:-0}" == "1" ]]; then
   if grep -q '```' <<<"$OUT"; then
     OUT="${OUT#*\`\`\`}"
     OUT="${OUT#*$'\n'}"
