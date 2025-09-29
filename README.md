@@ -25,6 +25,42 @@ Using [lazy.nvim](https://github.com/folke/lazy.nvim):
 }
 ```
 
+### Lazy loading with `lazy.nvim`
+
+The plugin exposes both keymaps and the `:OpencodeInline` command, so you can defer loading until one of those entry points is used:
+
+```lua
+{
+  "opencode-dev/opencode-inline.nvim",
+  cmd = { "OpencodeInline" },
+  keys = {
+    {
+      "<leader>k",
+      mode = "v",
+      desc = "AI: Transform with opencode",
+      function()
+        require("opencode_inline").prompt_visual()
+      end,
+    },
+    {
+      "<leader>kr",
+      mode = "v",
+      desc = "AI: Refactor",
+      function()
+        require("opencode_inline").apply_visual("Refactor the code to be more readable and idiomatic. Keep behavior the same.")
+      end,
+    },
+  },
+  config = function()
+    require("opencode_inline").setup({
+      cmd_map = vim.g.neovide and "<D-k>" or nil,
+    })
+  end,
+}
+```
+
+With this setup `lazy.nvim` loads the plugin the first time you hit one of the registered keys or call `:OpencodeInline`, keeping startup fast while still making the AI workflow available on demand.
+
 The bundled script lives at `scripts/opencode-stdin` inside the plugin and is executable out of the box. If you want to call it directly from your shell, add it to your `PATH` (e.g. symlink into `~/.local/bin`).
 
 ## Usage
