@@ -57,7 +57,26 @@ if ! command -v opencode >/dev/null 2>&1; then
   exit 127
 fi
 
-OUT=$(opencode run "${PROMPT}" "${MODEL_ARGS[@]}")
+# Encourage non-interactive output if the CLI honors these flags/env vars.
+: "${NO_COLOR:=1}"
+: "${OPENCODE_NO_COLOR:=1}"
+
+OUT=$(NO_COLOR="$NO_COLOR" OPENCODE_NO_COLOR="$OPENCODE_NO_COLOR" opencode run "${PROMPT}" "${MODEL_ARGS[@]}" 2>&1)
+
+# Strip ANSI escape sequences/spinners for clean buffer insertion.
+if command -v python3 >/dev/null 2>&1; then
+  OUT=$(printf "%s" "$OUT" | python3 - <<'PY'
+import sys, re
+pattern = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
+print(pattern.sub("", sys.stdin.read()).replace("\r", ""), end="")
+PY
+)
+elif command -v perl >/dev/null 2>&1; then
+  OUT=$(printf "%s" "$OUT" | perl -pe 's/\e\[[0-9;?]*[ -\/]*[@-~]//g; s/\r//g')
+else
+  # Fallback: remove a simple subset of color codes via parameter expansion.
+  OUT=${OUT//$'\e'\[*m/}
+fi
 
 if [[ "${OPCODE_STRIP_CODEBLOCK:-0}" == "1" ]]; then
   if grep -q '```' <<<"$OUT"; then
