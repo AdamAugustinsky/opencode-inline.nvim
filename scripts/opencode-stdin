@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Usage:
+#   opencode-stdin "Instruction here" [-m provider/model] [--agent agent-name]
+#
+# Reads code from stdin, detects filetype from $NVIM_FILETYPE if set,
+# builds a structured prompt, and prints opencode's response.
+#
+# If you want only code output, set OPCODE_STRIP_CODEBLOCK=1.
+
+INSTRUCTION=${1:-"Improve this code"}
+shift || true
+
+MODEL_ARGS=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -m|--model|--agent|-s|--session|-c|--continue|--share)
+      MODEL_ARGS+=("$1")
+      shift
+      if [[ $# -gt 0 && ! "$1" =~ ^- ]]; then
+        MODEL_ARGS+=("$1")
+        shift
+      fi
+      ;;
+    --)
+      shift
+      while [[ $# -gt 0 ]]; do
+        MODEL_ARGS+=("$1")
+        shift
+      done
+      ;;
+    *)
+      MODEL_ARGS+=("$1")
+      shift
+      ;;
+  esac
+done
+
+CODE=$(cat)
+FT="${NVIM_FILETYPE:-text}"
+
+read -r -d '' PROMPT <<'EOF2' || true
+You are an expert developer. Follow the user instruction and transform the provided code accordingly.
+- Prefer deterministic, minimal changes unless explicitly asked otherwise.
+- Keep semantics identical unless asked for a refactor or optimization.
+- If returning code, reply with ONLY a single fenced code block in the same language.
+EOF2
+
+PROMPT+=$'\n\nUser instruction:\n'
+PROMPT+="$INSTRUCTION"
+PROMPT+=$'\n\nCode:\n'
+PROMPT+="\`\`\`${FT}\n${CODE}\n\`\`\`"
+
+if ! command -v opencode >/dev/null 2>&1; then
+  echo "opencode command not found in PATH" >&2
+  exit 127
+fi
+
+OUT=$(opencode run "${PROMPT}" "${MODEL_ARGS[@]}")
+
+if [[ "${OPCODE_STRIP_CODEBLOCK:-0}" == "1" ]]; then
+  if grep -q '```' <<<"$OUT"; then
+    OUT="${OUT#*\`\`\`}"
+    OUT="${OUT#*$'\n'}"
+    OUT="${OUT%%\`\`\`*}"
+    OUT="${OUT%$'\n'}"
+  fi
+fi
+
+printf "%s" "$OUT"
